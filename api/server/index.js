@@ -1,5 +1,4 @@
 require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
 require('module-alias')({ base: path.resolve(__dirname, '..') });
 const cors = require('cors');
@@ -34,6 +33,7 @@ const initializeMCPs = require('./services/initializeMCPs');
 const configureSocialLogins = require('./socialLogins');
 const { getAppConfig } = require('./services/Config');
 const staticCache = require('./utils/staticCache');
+const { loadIndexHtml, mountStaticIfExists } = require('./utils/clientBundle');
 const optionalJwtAuth = require('./middleware/optionalJwtAuth');
 const noIndex = require('./middleware/noIndex');
 const routes = require('./routes');
@@ -76,8 +76,7 @@ const startServer = async () => {
     await updateInterfacePermissions({ appConfig, getRoleByName, updateAccessPermissions });
   });
 
-  const indexPath = path.join(appConfig.paths.dist, 'index.html');
-  let indexHTML = fs.readFileSync(indexPath, 'utf8');
+  let { html: indexHTML } = loadIndexHtml(appConfig.paths.dist);
 
   // In order to provide support to serving the application in a sub-directory
   // We need to update the base href if the DOMAIN_CLIENT is specified and not the root path
@@ -123,9 +122,9 @@ const startServer = async () => {
     console.warn('Response compression has been disabled via DISABLE_COMPRESSION.');
   }
 
-  app.use(staticCache(appConfig.paths.dist));
-  app.use(staticCache(appConfig.paths.fonts));
-  app.use(staticCache(appConfig.paths.assets));
+  mountStaticIfExists(app, staticCache, appConfig.paths.dist);
+  mountStaticIfExists(app, staticCache, appConfig.paths.fonts);
+  mountStaticIfExists(app, staticCache, appConfig.paths.assets);
 
   if (!ALLOW_SOCIAL_LOGIN) {
     console.warn('Social logins are disabled. Set ALLOW_SOCIAL_LOGIN=true to enable them.');
@@ -181,6 +180,7 @@ const startServer = async () => {
   app.use('/api/agents', routes.agents);
   app.use('/api/banner', routes.banner);
   app.use('/api/memories', routes.memories);
+  app.use('/api/contacts', routes.contacts);
   app.use('/api/permissions', routes.accessPermissions);
 
   app.use('/api/tags', routes.tags);

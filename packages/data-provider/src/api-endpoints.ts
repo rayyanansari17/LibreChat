@@ -407,6 +407,12 @@ export const memories = () => `${BASE_URL}/api/memories`;
 export const memory = (key: string) => `${memories()}/${encodeURIComponent(key)}`;
 export const memoryPreferences = () => `${memories()}/preferences`;
 
+export const contacts = (params?: { q?: string }) =>
+  `${BASE_URL}/api/contacts${buildQuery(params ?? {})}`;
+export const contact = (id: string) =>
+  `${BASE_URL}/api/contacts/${encodeURIComponent(id)}`;
+export const contactsImport = () => `${BASE_URL}/api/contacts/import`;
+
 export const searchPrincipals = (params: q.PrincipalSearchParams) => {
   const { q: query, limit, types } = params;
   let url = `${BASE_URL}/api/permissions/search-principals?q=${encodeURIComponent(query)}`;

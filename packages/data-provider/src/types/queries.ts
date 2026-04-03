@@ -145,6 +145,28 @@ export type MemoriesResponse = {
   usagePercentage: number | null;
 };
 
+/* Contacts */
+export type TContact = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  notes: string;
+  attributes: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContactsListResponse = {
+  contacts: TContact[];
+};
+
+export type ContactsImportResponse = {
+  inserted: number;
+  skipped: number;
+};
+
 export type PrincipalSearchParams = {
   q: string;
   limit?: number;
