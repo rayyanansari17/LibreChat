@@ -19,6 +19,7 @@ const {
   retrievalMimeTypes,
   AssistantStreamEvents,
 } = require('librechat-data-provider');
+const mongoose = require('mongoose');
 const {
   initThread,
   recordUsage,
@@ -42,6 +43,38 @@ const {
 } = require('~/models');
 const { logViolation, getLogStores } = require('~/cache');
 const { getOpenAIClient } = require('./helpers');
+
+function escapeRegExp(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Heuristic extraction of a contacts lookup query from the user's message.
+ * This keeps DB prefetch narrow (example queries like "Who works at Stripe?").
+ */
+function extractContactsContextQuery(message) {
+  const text = String(message ?? '').trim();
+  if (!text) return null;
+  const lower = text.toLowerCase();
+
+  if (/\b(all contacts|list all contacts|show all contacts)\b/i.test(lower)) {
+    return { mode: 'all', limit: 20 };
+  }
+
+  const worksAt = text.match(/\bworks at\s+(.+?)(?:[.?!]|$)/i);
+  if (worksAt?.[1]) return { mode: 'search', query: worksAt[1].trim(), limit: 6 };
+
+  const interestedIn = text.match(/\binterested in\s+(.+?)(?:[.?!]|$)/i);
+  if (interestedIn?.[1]) return { mode: 'search', query: interestedIn[1].trim(), limit: 6 };
+
+  const about = text.match(/\bwhat do we know about\s+(.+?)(?:[.?!]|$)/i);
+  if (about?.[1]) return { mode: 'search', query: about[1].trim(), limit: 6 };
+
+  const tellMeAbout = text.match(/\btell me about\s+(.+?)(?:[.?!]|$)/i);
+  if (tellMeAbout?.[1]) return { mode: 'search', query: tellMeAbout[1].trim(), limit: 6 };
+
+  return null;
+}
 
 /**
  * @route POST /
@@ -71,6 +104,8 @@ const chatV2 = async (req, res) => {
     parentMessageId: _parentId = Constants.NO_PARENT,
     clientTimestamp,
   } = req.body;
+
+  let effectivePromptPrefix = promptPrefix;
 
   /** @type {OpenAI} */
   let openai;
@@ -118,6 +153,65 @@ const chatV2 = async (req, res) => {
 
   const handleError = createErrorHandler({ req, res, getContext });
 
+  // Optional pre-retrieval: when the user's message is contact-specific,
+  // attach a small set of matching contacts into the prompt so the model
+  // can answer even if it doesn't decide to call tools.
+  const contactsContextSpec = extractContactsContextQuery(text);
+  if (contactsContextSpec?.mode) {
+    try {
+      const Contact = mongoose.models.Contact;
+      if (Contact) {
+        const filter = { userId: req.user.id };
+        if (contactsContextSpec.mode === 'search' && contactsContextSpec.query) {
+          filter.searchText = new RegExp(escapeRegExp(contactsContextSpec.query), 'i');
+        }
+
+        const docs = await Contact.find(filter)
+          .sort({ updated_at: -1 })
+          .limit(contactsContextSpec.limit ?? 6)
+          .lean();
+
+        if (Array.isArray(docs) && docs.length > 0) {
+          const lines = docs.map((doc) => {
+            const attrsObj = doc.attributes && typeof doc.attributes === 'object' ? doc.attributes : {};
+            const attrsEntries = Object.entries(attrsObj).slice(0, 3);
+            const attrsText = attrsEntries.length
+              ? ` | attributes: ${attrsEntries
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join(', ')}`.slice(0, 200)
+              : '';
+
+            const notes = (doc.notes ?? '')
+              .toString()
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160);
+
+            const company = doc.company ? ` (${doc.company})` : '';
+            const email = doc.email ? doc.email : '—';
+            const phone = doc.phone ? doc.phone : '—';
+
+            return `- ${doc.name ?? ''}${company} | email: ${email} | phone: ${phone} | notes: ${notes}${attrsText}`;
+          });
+
+          const header = [
+            'Contacts available to answer this question:',
+            ...lines,
+            '',
+            'Use these contacts as grounding. If you need more matches, call `contacts_search`.',
+            'Only use contacts belonging to the authenticated user.',
+          ].join('\n');
+
+          effectivePromptPrefix = effectivePromptPrefix
+            ? `${effectivePromptPrefix}\n\n${header}`
+            : header;
+        }
+      }
+    } catch (err) {
+      logger.debug('[contacts] prefetch failed (non-fatal)', err);
+    }
+  }
+
   try {
     res.on('close', async () => {
       if (!completedRun) {
@@ -154,7 +248,7 @@ const chatV2 = async (req, res) => {
       // TODO: make promptBuffer a config option; buffer for titles, needs buffer for system instructions
       const promptBuffer = parentMessageId === Constants.NO_PARENT && !_thread_id ? 200 : 0;
       // 5 is added for labels
-      let promptTokens = (await countTokens(text + (promptPrefix ?? ''))) + 5;
+      let promptTokens = (await countTokens(text + (effectivePromptPrefix ?? ''))) + 5;
       promptTokens += totalPreviousTokens + promptBuffer;
       // Count tokens up to the current context window
       promptTokens = Math.min(promptTokens, getModelMaxTokens(model));
@@ -211,7 +305,7 @@ const chatV2 = async (req, res) => {
     const body = createRunBody({
       assistant_id,
       model,
-      promptPrefix,
+      promptPrefix: effectivePromptPrefix,
       instructions,
       endpointOption,
       clientTimestamp,
@@ -315,7 +409,7 @@ const chatV2 = async (req, res) => {
       conversation = {
         conversationId,
         endpoint,
-        promptPrefix: promptPrefix,
+        promptPrefix: effectivePromptPrefix,
         instructions: instructions,
         assistant_id,
         // model,

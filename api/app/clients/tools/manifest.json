@@ -166,5 +166,12 @@
         "optional": true
       }
     ]
+  },
+  {
+    "name": "Contacts Search",
+    "pluginKey": "contacts_search",
+    "description": "Search the authenticated user's imported contacts and return relevant matches.",
+    "authConfig": [],
+    "icon": ""
   }
 ]

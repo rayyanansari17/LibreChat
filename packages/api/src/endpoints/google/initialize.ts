@@ -25,8 +25,11 @@ export async function initializeGoogle({
 }: BaseInitializeParams): Promise<InitializeResultBase> {
   void endpoint;
   const appConfig = req.config;
-  const { GOOGLE_KEY, GOOGLE_REVERSE_PROXY, GOOGLE_AUTH_HEADER, PROXY } = process.env;
+  const { GOOGLE_KEY, GEMINI_API_KEY, GOOGLE_REVERSE_PROXY, GOOGLE_AUTH_HEADER, PROXY } =
+    process.env;
   const isUserProvided = GOOGLE_KEY === 'user_provided';
+  const geminiApiKey = GEMINI_API_KEY?.trim() ?? '';
+  const hasDirectGoogleKey = Boolean(GOOGLE_KEY?.trim()) && GOOGLE_KEY !== 'user_provided';
   const { key: expiresAt } = req.body;
 
   let userKey = null;
@@ -37,9 +40,14 @@ export async function initializeGoogle({
 
   let serviceKey: Record<string, unknown> = {};
 
-  /** Check if GOOGLE_KEY is provided at all (including 'user_provided') */
+  /**
+   * API key available for Gemini API: explicit GOOGLE_KEY, user-provided key, or GEMINI_API_KEY
+   * (same fallback pattern as the Gemini image tool).
+   */
   const isGoogleKeyProvided =
-    (GOOGLE_KEY && GOOGLE_KEY.trim() !== '') || (isUserProvided && userKey != null);
+    hasDirectGoogleKey ||
+    (isUserProvided && userKey != null) ||
+    geminiApiKey.length > 0;
 
   if (!isGoogleKeyProvided && loadServiceKey) {
     /** Only attempt to load service key if GOOGLE_KEY is not provided */
@@ -60,7 +68,7 @@ export async function initializeGoogle({
     ? (userKey as GoogleCredentials)
     : {
         [AuthKeys.GOOGLE_SERVICE_KEY]: serviceKey,
-        [AuthKeys.GOOGLE_API_KEY]: GOOGLE_KEY,
+        [AuthKeys.GOOGLE_API_KEY]: hasDirectGoogleKey ? GOOGLE_KEY!.trim() : geminiApiKey || undefined,
       };
 
   let clientOptions: GoogleConfigOptions = {};

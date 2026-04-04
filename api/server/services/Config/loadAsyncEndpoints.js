@@ -10,6 +10,9 @@ async function loadAsyncEndpoints() {
   /** Check if GOOGLE_KEY is provided at all(including 'user_provided') */
   const isGoogleKeyProvided = googleKey && googleKey.trim() !== '';
 
+  const geminiApiKey = process.env.GEMINI_API_KEY?.trim?.() ?? '';
+  const isGeminiApiKeyProvided = geminiApiKey.length > 0;
+
   if (isGoogleKeyProvided) {
     /** If GOOGLE_KEY is provided, check if it's user_provided */
     googleUserProvides = isUserProvided(googleKey);
@@ -26,7 +29,10 @@ async function loadAsyncEndpoints() {
     }
   }
 
-  const google = serviceKey || isGoogleKeyProvided ? { userProvide: googleUserProvides } : false;
+  /** Expose Google (Gemini) in the UI when GOOGLE_KEY, GEMINI_API_KEY, or a Vertex service key is configured */
+  const googleEnabled =
+    Boolean(serviceKey) || isGoogleKeyProvided || isGeminiApiKeyProvided;
+  const google = googleEnabled ? { userProvide: googleUserProvides === true } : false;
 
   return { google };
 }

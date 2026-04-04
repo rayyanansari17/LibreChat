@@ -354,6 +354,25 @@ export const fileSearchSchema: ExtendedJsonSchema = {
   required: ['query'],
 };
 
+/** Contacts search tool JSON schema */
+export const contactsSearchSchema: ExtendedJsonSchema = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      description:
+        'Optional search text for finding matching contacts. If omitted/empty, returns the most recently updated contacts.',
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 50,
+      description: 'Maximum number of contacts to return. Defaults to 5 (max 50).',
+    },
+  },
+  required: [],
+};
+
 /** Tool definitions registry - maps tool names to their definitions */
 export const toolDefinitions: Record<string, ToolRegistryDefinition> = {
   google: {
@@ -427,6 +446,14 @@ export const toolDefinitions: Record<string, ToolRegistryDefinition> = {
     schema: fileSearchSchema,
     toolType: 'builtin',
     responseFormat: 'content_and_artifact',
+  },
+  contacts_search: {
+    name: 'contacts_search',
+    description:
+      "Search the authenticated user's imported contacts and return the most relevant matches. Use it for retrieval like 'find contacts named X' or 'who has email containing Y'.",
+    schema: contactsSearchSchema,
+    toolType: 'builtin',
+    responseFormat: 'content',
   },
   image_gen_oai: {
     name: oaiToolkit.image_gen_oai.name,

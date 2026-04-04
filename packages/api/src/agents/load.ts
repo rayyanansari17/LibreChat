@@ -62,6 +62,13 @@ export async function loadEphemeralAgent(
     }
   }
   const tools: string[] = [];
+  // Built-in retrieval tool for user-imported contacts.
+  // This is included by default for ephemeral agents (normal chat) so the assistant
+  // can answer questions about stored contacts.
+  tools.push('contacts_search');
+  // Built-in web search tool (Google Custom Search plugin) for normal chat.
+  // If the user hasn't configured Google auth fields, tool loading will fail gracefully.
+  tools.push('google');
   if (ephemeralAgent?.execute_code === true || modelSpec?.executeCode === true) {
     tools.push(Tools.execute_code);
   }
