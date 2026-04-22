@@ -20,4 +20,6 @@ function MessageAudio(props: TMessageAudio) {
   return <SelectedTTS {...props} />;
 }
 
-export default memo(MessageAudio);
+export default memo(MessageAudio, (prevProps, nextProps) => {
+  return prevProps.messageId === nextProps.messageId && prevProps.content === nextProps.content;
+});

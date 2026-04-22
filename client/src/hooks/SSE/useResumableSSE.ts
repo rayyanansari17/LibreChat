@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { unstable_batchedUpdates } from 'react-dom';
 import { v4 } from 'uuid';
 import { SSE } from 'sse.js';
 import { useSetRecoilState } from 'recoil';
@@ -157,8 +158,10 @@ export default function useResumableSSE(
         console.log('[ResumableSSE] Stream connected');
         setAbortScroll(false);
         // Restore UI state on successful connection (including reconnection)
-        setIsSubmitting(true);
-        setShowStopButton(true);
+        unstable_batchedUpdates(() => {
+          setIsSubmitting(true);
+          setShowStopButton(true);
+        });
         reconnectAttemptRef.current = 0;
       });
 
@@ -177,8 +180,10 @@ export default function useResumableSSE(
               finalHandler(data, currentSubmission as EventSubmission);
             } catch (error) {
               console.error('[ResumableSSE] Error in finalHandler:', error);
-              setIsSubmitting(false);
-              setShowStopButton(false);
+              unstable_batchedUpdates(() => {
+                setIsSubmitting(false);
+                setShowStopButton(false);
+              });
             }
             // Clear handler maps on stream completion to prevent memory leaks
             clearStepMaps();
@@ -307,8 +312,10 @@ export default function useResumableSSE(
               }
             }
 
-            setIsSubmitting(true);
-            setShowStopButton(true);
+            unstable_batchedUpdates(() => {
+              setIsSubmitting(true);
+              setShowStopButton(true);
+            });
             return;
           }
 
@@ -361,8 +368,10 @@ export default function useResumableSSE(
             queryClient.invalidateQueries({ queryKey: [QueryKeys.messages, convoId] });
             queryClient.removeQueries({ queryKey: streamStatusQueryKey(convoId) });
           }
-          setIsSubmitting(false);
-          setShowStopButton(false);
+          unstable_batchedUpdates(() => {
+            setIsSubmitting(false);
+            setShowStopButton(false);
+          });
           setStreamId(null);
           reconnectAttemptRef.current = 0;
           return;
@@ -432,8 +441,10 @@ export default function useResumableSSE(
             });
           }
 
-          setIsSubmitting(false);
-          setShowStopButton(false);
+          unstable_batchedUpdates(() => {
+            setIsSubmitting(false);
+            setShowStopButton(false);
+          });
           setStreamId(null);
           reconnectAttemptRef.current = 0;
           return;
@@ -465,16 +476,20 @@ export default function useResumableSSE(
 
           // Keep UI in "submitting" state during reconnection attempts
           // so user knows we're still trying (abort handler may have reset these)
-          setIsSubmitting(true);
-          setShowStopButton(true);
+          unstable_batchedUpdates(() => {
+            setIsSubmitting(true);
+            setShowStopButton(true);
+          });
         } else {
           console.error('[ResumableSSE] Max reconnect attempts reached');
           sse.close();
           errorHandler({ data: undefined, submission: currentSubmission as EventSubmission });
           // Optimistically remove from active jobs on max retries
           removeActiveJob(currentStreamId);
-          setIsSubmitting(false);
-          setShowStopButton(false);
+          unstable_batchedUpdates(() => {
+            setIsSubmitting(false);
+            setShowStopButton(false);
+          });
           setStreamId(null);
         }
       });
@@ -499,8 +514,10 @@ export default function useResumableSSE(
           reconnectTimeoutRef.current = null;
         }
         // Reset UI state - useResumeOnLoad will restore if user returns to this conversation
-        setIsSubmitting(false);
-        setShowStopButton(false);
+        unstable_batchedUpdates(() => {
+          setIsSubmitting(false);
+          setShowStopButton(false);
+        });
         setStreamId(null);
       });
 
@@ -651,8 +668,10 @@ export default function useResumableSSE(
     submissionRef.current = submission;
 
     const initStream = async () => {
-      setIsSubmitting(true);
-      setShowStopButton(true);
+      unstable_batchedUpdates(() => {
+        setIsSubmitting(true);
+        setShowStopButton(true);
+      });
 
       if (resumeStreamId) {
         // Resume: just subscribe to existing stream, don't start new generation
@@ -701,8 +720,10 @@ export default function useResumableSSE(
       // Clear handler maps to prevent memory leaks and stale state
       clearStepMaps();
       // Reset UI state on cleanup - useResumeOnLoad will restore if needed
-      setIsSubmitting(false);
-      setShowStopButton(false);
+      unstable_batchedUpdates(() => {
+        setIsSubmitting(false);
+        setShowStopButton(false);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submission]);

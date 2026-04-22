@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { unstable_batchedUpdates } from 'react-dom';
 import { v4 } from 'uuid';
 import { useSetRecoilState } from 'recoil';
 import { useQueryClient } from '@tanstack/react-query';
@@ -445,8 +446,10 @@ export default function useEventHandlers({
           console.log(
             '[finalHandler] Early abort detected - no messages saved, staying on new chat',
           );
-          setShowStopButton(false);
-          setIsSubmitting(false);
+          unstable_batchedUpdates(() => {
+            setShowStopButton(false);
+            setIsSubmitting(false);
+          });
           // Navigate to new chat if not already there
           if (location.pathname !== `/c/${Constants.NEW_CONVO}`) {
             navigate(`/c/${Constants.NEW_CONVO}`, { replace: true });
@@ -597,8 +600,10 @@ export default function useEventHandlers({
           }
         }
       } finally {
-        setShowStopButton(false);
-        setIsSubmitting(false);
+        unstable_batchedUpdates(() => {
+          setShowStopButton(false);
+          setIsSubmitting(false);
+        });
       }
     },
     [

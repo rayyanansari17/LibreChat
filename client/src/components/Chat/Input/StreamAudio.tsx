@@ -61,10 +61,11 @@ export default function StreamAudio({ index = 0 }) {
       !latestMessage.messageId.includes('_') &&
       !isFetching &&
       activeRunId != null &&
-      activeRunId !== audioRunId
+      activeRunId !== audioRunId &&
+      (!audioRef.current || !audioRef.current.src || audioRef.current.src === window.location.origin || audioRef.current.src === `${window.location.origin}/`)
     );
 
-    if (!shouldFetch) {
+    if (!shouldFetch || !latestText.trim()) {
       return;
     }
 

@@ -91,6 +91,10 @@ export function BrowserTTS({
         }}
         src={audioRef.current?.src}
         onError={(error) => {
+          const src = (error.target as HTMLAudioElement)?.src;
+          if (!src || src === window.location.origin || src === `${window.location.origin}/`) {
+            return;
+          }
           logger.error('Error fetching audio:', error);
         }}
         id={`audio-${messageId}`}
@@ -189,6 +193,10 @@ export function ExternalTTS({
         }}
         src={audioRef.current?.src}
         onError={(error) => {
+          const src = (error.target as HTMLAudioElement)?.src;
+          if (!src || src === window.location.origin || src === `${window.location.origin}/`) {
+            return;
+          }
           logger.error('Error fetching audio:', error);
         }}
         id={`audio-${messageId}`}

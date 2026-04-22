@@ -1,3 +1,4 @@
+import debounce from 'lodash/debounce';
 import throttle from 'lodash/throttle';
 import { Constants } from 'librechat-data-provider';
 import { useEffect, useRef, useMemo } from 'react';
@@ -10,6 +11,14 @@ export default function useMessageProcess({ message }: { message?: TMessage | nu
   const hasNoChildren = useMemo(() => (message?.children?.length ?? 0) === 0, [message]);
 
   const { conversation, setAbortScroll, setLatestMessage, isSubmitting } = useMessagesViewContext();
+
+  const debouncedSetLatestMessage = useMemo(
+    () =>
+      debounce((msg: TMessage) => {
+        setLatestMessage(msg);
+      }, 100),
+    [setLatestMessage],
+  );
 
   useEffect(() => {
     const convoId = conversation?.conversationId;
@@ -50,11 +59,23 @@ export default function useMessageProcess({ message }: { message?: TMessage | nu
     ) {
       logger.log('latest_message', '[useMessageProcess] Setting latest message; logInfo:', logInfo);
       latestText.current = textKey;
-      setLatestMessage({ ...message });
+      if (isSubmitting) {
+        debouncedSetLatestMessage({ ...message });
+      } else {
+        debouncedSetLatestMessage.cancel();
+        setLatestMessage({ ...message });
+      }
     } else {
       logger.log('latest_message', 'No change in latest message; logInfo', logInfo);
     }
-  }, [hasNoChildren, message, setLatestMessage, conversation?.conversationId]);
+  }, [
+    hasNoChildren,
+    message,
+    setLatestMessage,
+    conversation?.conversationId,
+    isSubmitting,
+    debouncedSetLatestMessage,
+  ]);
 
   /** Use ref for isSubmitting to stabilize handleScroll across isSubmitting changes */
   const isSubmittingRef = useRef(isSubmitting);
